@@ -1,0 +1,50 @@
+name: Stage 8K2 Blazor QA Build
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '.ps-stage8k2-temp/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.402'
+
+      - name: Publish standalone Blazor WebAssembly
+        run: |
+          dotnet --info
+          dotnet publish .ps-stage8k2-temp/ProfoundSyntax.Stage8K2.BlazorQA.csproj -c Release -o .ps-stage8k2-temp/publish
+
+      - name: Verify published browser output
+        run: |
+          test -f .ps-stage8k2-temp/publish/wwwroot/index.html
+          test -d .ps-stage8k2-temp/publish/wwwroot/_framework
+          test -f .ps-stage8k2-temp/publish/wwwroot/_framework/blazor.webassembly.js
+          if find .ps-stage8k2-temp/publish/wwwroot -type f \( -name '*.cs' -o -name '*.razor' -o -name '*.csproj' \) | grep -q .; then
+            echo "Source files leaked into publish/wwwroot"
+            exit 1
+          fi
+
+      - name: Package upload ZIP
+        run: |
+          cd .ps-stage8k2-temp/publish/wwwroot
+          zip -qr "$GITHUB_WORKSPACE/ProfoundSyntax-Stage8K2-Blazor-QA-NET10.0.13.zip" .
+
+      - name: Upload QA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage8k2-blazor-qa
+          path: ProfoundSyntax-Stage8K2-Blazor-QA-NET10.0.13.zip
+          if-no-files-found: error
+          retention-days: 1
