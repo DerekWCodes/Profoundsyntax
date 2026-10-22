@@ -1,0 +1,89 @@
+@inject IJSRuntime JS
+@inject HttpClient Http
+
+<main class="wrap">
+    <section class="panel">
+        <p class="eyebrow">Stage 8K2 — Blazor WebAssembly</p>
+        <h1>Browser-only .NET runtime QA</h1>
+        <p class="lede">Standalone published Blazor WebAssembly. No ASP.NET server execution, direct persistence, Workers, or external networking.</p>
+        @foreach (var item in Results)
+        {
+            <article class="result @(item.Pass ? "pass" : "fail")">
+                <strong>@(item.Pass ? "PASS" : "FAIL") — @item.Title</strong>
+                <span>@item.Detail</span>
+            </article>
+        }
+        @if (!Complete)
+        {
+            <article class="result pending"><strong>Running QA…</strong><span>Waiting for browser capability checks.</span></article>
+        }
+        <p class="foot">Expected profile: Blazor WebAssembly v1 · static browser Wasm only · no direct persistence · no Workers · no ASP.NET/server-side .NET execution</p>
+    </section>
+</main>
+
+@code {
+    private readonly List<Result> Results = new();
+    private bool Complete;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var sum = 20 + 22;
+        Results.Add(new(sum == 42, ".NET / Blazor WebAssembly executed", $"C# add(20,22)={sum}"));
+        StateHasChanged();
+
+        try
+        {
+            var idb = await JS.InvokeAsync<ProbeResult>("ps8k2.indexedDbBlocked");
+            Results.Add(new(idb.Pass, "Direct IndexedDB blocked", idb.Detail));
+        }
+        catch (Exception ex)
+        {
+            Results.Add(new(false, "Direct IndexedDB blocked", "Probe exception: " + ex.GetType().Name));
+        }
+        StateHasChanged();
+
+        try
+        {
+            var worker = await JS.InvokeAsync<ProbeResult>("ps8k2.workerBlocked");
+            Results.Add(new(worker.Pass, "Dedicated Worker blocked", worker.Detail));
+        }
+        catch (Exception ex)
+        {
+            Results.Add(new(false, "Dedicated Worker blocked", "Probe exception: " + ex.GetType().Name));
+        }
+        StateHasChanged();
+
+        try
+        {
+            var threaded = await JS.InvokeAsync<ProbeResult>("ps8k2.threadedUnavailable");
+            Results.Add(new(threaded.Pass, "Threaded WebAssembly unavailable", threaded.Detail));
+        }
+        catch (Exception ex)
+        {
+            Results.Add(new(false, "Threaded WebAssembly unavailable", "Probe exception: " + ex.GetType().Name));
+        }
+        StateHasChanged();
+
+        try
+        {
+            var local = (await Http.GetStringAsync("qa.txt")).Trim();
+            Results.Add(new(local == "PROFOUNDSYNTAX_BLAZOR_PACKAGE_LOCAL_FETCH_OK", "Package-local Fetch", local));
+        }
+        catch (Exception ex)
+        {
+            Results.Add(new(false, "Package-local Fetch", "Fetch exception: " + ex.GetType().Name));
+        }
+
+        Complete = true;
+        StateHasChanged();
+    }
+
+    private sealed record Result(bool Pass, string Title, string Detail);
+    public sealed class ProbeResult
+    {
+        public bool Pass { get; set; }
+        public string Detail { get; set; } = "";
+    }
+}
