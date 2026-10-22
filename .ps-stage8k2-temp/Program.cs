@@ -8,3 +8,4 @@ builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(builder.H
 await builder.Build().RunAsync();
 
 // CI trigger after workflow authorization.
+// PR trigger after main workflow install.
