@@ -1,10 +1,10 @@
 name: Stage 8K2 Blazor QA Build
 
 on:
-  pull_request:
+  push:
     branches: [ main ]
     paths:
-      - '.ps-stage8k2-temp/**'
+      - '.github/workflows/stage8k2-temp-build.yml'
 
 permissions:
   contents: read
@@ -13,8 +13,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout temporary QA branch
         uses: actions/checkout@v4
+        with:
+          ref: chatgpt-stage8k2-ci
 
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
